@@ -790,5 +790,194 @@ git log --graph --pretty=oneline --abbrev-commit
 
 ## 4.BUG分支
 
+命令行：
+
+```
+git stash  # 储藏当前工作区
+git stash pop # 恢复并删除stash
+git cherry-pick 4c805e2 # 只复制4c805e2 fix bug 101这个提交所做的修改
+```
+
+在Git中，由于分支是如此的强大，所以，每个bug都可以通过一个新的临时分支来修复，修复后，合并分支，然后将临时分支删除。
 
 
+
+例如：
+
+当你接到一个修复一个代号101的bug的任务时，很自然地，你想创建一个分支`issue-101`来修复它，但是，等等，当前正在`dev`上进行的工作还没有提交：
+
+```plain
+git status
+```
+
+并不是你不想提交，而是工作只进行到一半，还没法提交，预计完成还需1天时间。但是，必须在两个小时内修复该bug，怎么办？
+
+幸好，Git还提供了一个`stash`功能，可以把当前工作现场“储藏”起来，等以后恢复现场后继续工作：
+
+```plain
+git stash
+```
+
+这时用`git status`查看工作区，就是干净的（除非有没有被Git管理的文件），因此可以放心地创建分支来修复bug。
+
+首先确定要在哪个分支上修复bug，假定需要在`master`分支上修复，就从`master`创建临时分支：
+
+```plain
+git checkout master
+```
+
+```plain
+git checkout -b issue-101
+```
+
+现在修复bug，需要把“Git is free software ...”改为“Git is a free software ...”，然后提交：
+
+```plain
+git add readme.txt 
+```
+
+```plain
+git commit -m "fix bug 101"
+```
+
+修复完成后，切换到`master`分支，并完成合并，最后删除`issue-101`分支：
+
+```plain
+git switch master
+```
+
+```plain
+git merge --no-ff -m "merged bug fix 101" issue-101
+```
+
+太棒了，原计划两个小时的bug修复只花了5分钟！现在，是时候接着回到`dev`分支干活了！
+
+```plain
+git switch dev
+```
+
+```plain
+git status
+```
+
+工作区是干净的，刚才的工作现场存到哪去了？用`git stash list`命令看看：
+
+```plain
+git stash list
+```
+
+工作现场还在，Git把`stash`内容存在某个地方了，但是需要恢复一下，有两个办法：
+
+一是用`git stash apply`恢复，但是恢复后，`stash`内容并不删除，你需要用`git stash drop`来删除；
+
+二是用`git stash pop`，恢复的同时把`stash`内容也删了：
+
+```plain
+git stash pop
+```
+
+再用`git stash list`查看，就看不到任何`stash`内容了：
+
+```plain
+git stash list
+```
+
+你可以多次`stash`，恢复的时候，先用`git stash list`查看，然后恢复指定的`stash`，用命令：
+
+```plain
+git stash apply stash@{0}
+```
+
+
+
+在`master`分支上修复了bug后，还得修复dev，由于dev`分支是早期从`master`分支分出来的，也存在问题
+
+有比重复操作更简便的方法：同样的bug，要在`dev`上修复，我们只需要把`4c805e2 fix bug 101`这个提交所做的修改“复制”到`dev`分支
+
+注意：我们只想复制`4c805e2 fix bug 101`这个提交所做的修改，并不是把整个`master`分支merge过来。
+
+为了方便操作，Git专门提供了一个`cherry-pick`命令，让我们能复制一个特定的提交到当前分支：
+
+```plain
+git branch
+```
+
+```plain
+git cherry-pick 4c805e2
+```
+
+Git自动给`dev`分支做了一次提交，注意这次提交的commit是`1d4b803`，它并不同于`master`的`4c805e2`，因为这两个commit只是改动相同，但确实是两个不同的commit。用`git cherry-pick`，我们就不需要在`dev`分支上手动再把修bug的过程重复一遍。
+
+
+
+既然可以在`master`分支上修复bug后，在`dev`分支上可以“重放”这个修复过程，那么直接在`dev`分支上修复bug，然后在`master`分支上“重放”行不行？当然可以，不过你仍然需要`git stash`命令保存现场，才能从`dev`分支切换到`master`分支。
+
+
+
+## 5.Feature分支
+
+添加一个新功能时，你肯定不希望因为一些实验性质的代码，把主分支搞乱了，所以，每添加一个新功能，最好新建一个feature分支，在上面开发，完成后，合并，最后，删除该feature分支。
+
+如果要丢弃一个没有被合并过的分支，可以通过`git branch -D <name>`强行删除。
+
+
+
+案例演示：
+
+现在，你终于接到了一个新任务：开发代号为Vulcan的新功能，该功能计划用于下一代星际飞船。
+
+准备：
+
+```plain
+git switch -c feature-vulcan
+```
+
+5分钟后，开发完毕：
+
+```plain
+git add vulcan.py
+```
+
+```plain
+git status
+```
+
+```plain
+git commit -m "add feature vulcan"
+```
+
+切回`dev`，准备合并：
+
+```plain
+git switch dev
+```
+
+一切顺利的话，feature分支和bug分支是类似的，合并，然后删除。
+
+但是！
+
+就在此时，接到上级命令，因经费不足，新功能必须取消！
+
+虽然白干了，但是这个包含机密资料的分支还是必须就地销毁：
+
+```plain
+git branch -d feature-vulcan
+```
+
+销毁失败。Git友情提醒，`feature-vulcan`分支还没有被合并，如果删除，将丢失掉修改，如果要强行删除，需要使用大写的`-D`参数。。
+
+```plain
+git branch -D feature-vulcan
+```
+
+
+
+## 6.多人协作
+
+当你从远程仓库克隆时，实际上Git自动把本地的`master`分支和远程的`master`分支对应起来了，并且，远程仓库的默认名称是`origin`
+
+要查看远程库的信息，用`git remote`：
+
+```plain
+git remote
+```
